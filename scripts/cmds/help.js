@@ -1,113 +1,147 @@
 const { getPrefix } = global.utils;
 const { commands, aliases } = global.GoatBot;
+const fs = require("fs");
+const path = require("path");
 
 module.exports = {
   config: {
     name: "help",
-    version: "1.17",
-    author: "Ktkhang | modified MahMUD",
+    version: "3.0",
+    author: "Hasan X Dark",
     countDown: 5,
     role: 0,
     shortDescription: {
-      en: "View command usage and list all commands directly",
+      en: "Dark Help Menu",
     },
     longDescription: {
-      en: "View command usage and list all commands directly",
+      en: "View all commands",
     },
     category: "info",
     guide: {
-      en: "help cmdName",
+      en: "help or help cmdName",
     },
     priority: 1,
   },
 
   onStart: async function ({ message, args, event, threadsData, role }) {
     const { threadID } = event;
-    const threadData = await threadsData.get(threadID);
     const prefix = getPrefix(threadID);
 
+    // RANDOM VIDEO SYSTEM
+    const videoFolder = __dirname + "/cache/helpvideo";
+    let attachment = [];
+
+    if (fs.existsSync(videoFolder)) {
+      const files = fs.readdirSync(videoFolder).filter(file => file.endsWith(".mp4"));
+      if (files.length > 0) {
+        const randomFiles = files.sort(() => 0.5 - Math.random()).slice(0, 2);
+        for (const file of randomFiles) {
+          attachment.push(fs.createReadStream(path.join(videoFolder, file)));
+        }
+      }
+    }
+
+    // MAIN HELP MENU
     if (args.length === 0) {
       const categories = {};
       let msg = "";
 
-      msg += ``; 
+      msg += `╔════════════════════╗
+      🌑 𝐃𝐀𝐑𝐊 𝐇𝐄𝐋𝐏 𝐌𝐄𝐍𝐔 🌑
+╚════════════════════╝`;
 
       for (const [name, value] of commands) {
         if (value.config.role > 1 && role < value.config.role) continue;
 
         const category = value.config.category || "Uncategorized";
-        categories[category] = categories[category] || { commands: [] };
-        categories[category].commands.push(name);
+        categories[category] = categories[category] || [];
+        categories[category].push(name);
       }
 
       Object.keys(categories).forEach((category) => {
-        if (category !== "info") {
-          msg += `\n╭─────⭓ ${category.toUpperCase()}`;
+        msg += `\n\n╭──『 ${category.toUpperCase()} 』`;
 
-          const names = categories[category].commands.sort();
-          for (let i = 0; i < names.length; i += 3) {
-            const cmds = names.slice(i, i + 2).map((item) => `✧${item}`);
-            msg += `\n│${cmds.join(" ".repeat(Math.max(1, 5 - cmds.join("").length)))}`;
-          }
-
-          msg += `\n╰────────────⭓\n`;
+        const names = categories[category].sort();
+        for (let i = 0; i < names.length; i += 2) {
+          msg += `\n│ ✦ ${names[i]} ${names[i + 1] ? "│ ✦ " + names[i + 1] : ""}`;
         }
+
+        msg += `\n╰──────────────`;
       });
 
-      const totalCommands = commands.size;
-      msg += `\n\n⭔Bot has ${totalCommands} commands\n⭔Type ${prefix}𝐡𝐞𝐥𝐩 <𝚌𝚘𝚖𝚖𝚊𝚗𝚍 𝚗𝚊𝚖𝚎> to learn Usage.\n`;
-      msg += ``;
-      msg += `\n╭─✦ADMIN: Mehedi Hasan彡\n├‣ FACEBOOK\n╰‣:https://www.facebook.com/profile.php?id=61584451283974`; // customize this section if needed
+      msg += `
 
-      try {
-        const hh = await message.reply({ body: msg });
+╭──────────────
+│ 🤖 Total Commands: ${commands.size}
+│ ⚡ Prefix: ${prefix}
+│ 📌 Type: ${prefix}help <command>
+│ 👑 Admin: Mehedi Hasan
+╰──────────────`;
 
-        // Automatically unsend the message after 30 seconds
-        setTimeout(() => {
-          message.unsend(hh.messageID);
-        }, 80000);
+      const sendMsg = await message.reply({
+        body: msg,
+        attachment
+      });
 
-      } catch (error) {
-        console.error("Error sending help message:", error);
-      }
+      setTimeout(() => {
+        message.unsend(sendMsg.messageID);
+      }, 90000);
+    }
 
-    } else {
+    // COMMAND INFO
+    else {
       const commandName = args[0].toLowerCase();
       const command = commands.get(commandName) || commands.get(aliases.get(commandName));
 
       if (!command) {
-        await message.reply(`Command "${commandName}" not found.`);
-      } else {
-        const configCommand = command.config;
-        const roleText = roleTextToString(configCommand.role);
-        const author = configCommand.author || "Unknown";
-
-        const longDescription = configCommand.longDescription ? configCommand.longDescription.en || "No description" : "No description";
-
-        const guideBody = configCommand.guide?.en || "No guide available.";
-        const usage = guideBody.replace(/{he}/g, prefix).replace(/{lp}/g, configCommand.name);
-
-        const response = `╭─────────⭓\n│ 🎀 NAME: ${configCommand.name}\n│ 📃 Aliases: ${configCommand.aliases ? configCommand.aliases.join(", ") : "Do not have"}\n├──‣ INFO\n│ 📝 𝗗𝗲𝘀𝗰𝗿𝗶𝗽𝘁𝗶𝗼𝗻: ${longDescription}\n│ 👑 𝗔𝗱𝗺𝗶𝗻: 𝐌𝐚𝐡𝐌𝐔𝐃\n│ 📚 𝗚𝘂𝗶𝗱𝗲: ${usage}\n├──‣ Usage\n│ ⭐ 𝗩𝗲𝗿𝘀𝗶𝗼𝗻: ${configCommand.version || "1.0"}\n│ ♻️ 𝗥𝗼𝗹𝗲: ${roleText}\n╰────────────⭓`;
-
-        const helpMessage = await message.reply(response);
-
-          setTimeout(() => {
-          message.unsend(helpMessage.messageID);
-        }, 80000);
+        return message.reply("❌ Command not found");
       }
+
+      const configCommand = command.config;
+      const roleText = roleTextToString(configCommand.role);
+      const author = configCommand.author || "Unknown";
+
+      const longDescription = configCommand.longDescription
+        ? configCommand.longDescription.en || "No description"
+        : "No description";
+
+      const guideBody = configCommand.guide?.en || "No guide available.";
+      const usage = guideBody.replace(/{he}/g, prefix).replace(/{lp}/g, configCommand.name);
+
+      const response = `╔══════════════════╗
+      🌑 COMMAND INFO 🌑
+╚══════════════════╝
+│ 🎀 Name: ${configCommand.name}
+│ 📃 Aliases: ${configCommand.aliases ? configCommand.aliases.join(", ") : "None"}
+│ 📝 Description: ${longDescription}
+│ 👑 Bot Admin: Mehedi Hasan
+│ 🧑‍💻 Author: ${author}
+│ 📚 Guide: ${usage}
+│ ⭐ Version: ${configCommand.version || "1.0"}
+│ ♻️ Role: ${roleText}
+╰────────────────`;
+
+      const helpMessage = await message.reply({
+        body: response,
+        attachment
+      });
+
+      setTimeout(() => {
+        message.unsend(helpMessage.messageID);
+      }, 90000);
     }
   },
 };
 
-function roleTextToString(roleText) {
-  switch (roleText) {
+function roleTextToString(role) {
+  switch (role) {
     case 0:
-      return "0 (All users)";
+      return "All Users";
     case 1:
-      return "1 (Group administrators)";
+      return "Group Admin";
     case 2:
-      return "2 (Admin bot)";
+      return "Bot Admin";
     default:
-      return "Unknown role";
+      return "Unknown";
   }
-	      }
+		  }
