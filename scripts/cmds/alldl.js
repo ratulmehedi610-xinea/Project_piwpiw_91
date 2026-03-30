@@ -1,72 +1,86 @@
 const axios = require("axios");
 const fs = require("fs-extra");
+const path = require("path");
+
 const baseApiUrl = async () => {
-  const base = await axios.get(
-    `https://raw.githubusercontent.com/Mostakim0978/D1PT0/refs/heads/main/baseApiUrl.json`,
-  );
-  return base.data.api;
+  const base = await axios.get("https://raw.githubusercontent.com/mahmudx7/HINATA/main/baseApiUrl.json");
+  return base.data.mahmud;
 };
+
+function detectPlatform(url) {
+  if (url.includes("facebook")) return "Facebook";
+  if (url.includes("tiktok")) return "TikTok";
+  if (url.includes("youtube") || url.includes("youtu.be")) return "YouTube";
+  if (url.includes("instagram")) return "Instagram";
+  return null;
+}
 
 module.exports = {
   config: {
-    name: "alldl",
-    version: "1.0.5",
-    author: "Dipto",
-    countDown: 2,
-    role: 0,
-    description: {
-      en: "𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 𝘃𝗶𝗱𝗲𝗼 𝗳𝗿𝗼𝗺 𝘁𝗶𝗸𝘁𝗼𝗸, 𝗳𝗮𝗰𝗲𝗯𝗼𝗼𝗸, 𝗜𝗻𝘀𝘁𝗮𝗴𝗿𝗮𝗺, 𝗬𝗼𝘂𝗧𝘂𝗯𝗲, 𝗮𝗻𝗱 𝗺𝗼𝗿𝗲",
-    },
-    category: "𝗠𝗘𝗗𝗜𝗔",
-    guide: {
-      en: "[video_link]",
-    },
+    name: "autodl",
+    version: "1.0",
+    author: "MahMUD",
+    category: "media"
   },
-  onStart: async function ({ api, args, event }) {
-    const dipto = event.messageReply?.body || args[0];
-    if (!dipto) {
-      api.setMessageReaction("❌", event.messageID, (err) => {}, true);
-    }
+
+  onChat: async function ({ api, event }) {
     try {
-      api.setMessageReaction("⏳", event.messageID, (err) => {}, true);
-      const { data } = await axios.get(`${await baseApiUrl()}/alldl?url=${encodeURIComponent(dipto)}`);
-      const filePath = __dirname + `/cache/vid.mp4`;
-      if(!fs.existsSync(filePath)){
-        fs.mkdir(__dirname + '/cache');
+      if (!event.body) return;
+
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const match = event.body.match(urlRegex);
+      if (!match) return;
+
+      const link = match[0];
+      const platform = detectPlatform(link);
+      if (!platform) return;
+
+      const cacheDir = path.join(__dirname, "cache");
+      const filePath = path.join(cacheDir, `auto_${Date.now()}.mp4`);
+
+      if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
       }
-      const vid = (
-        await axios.get(data.result, { responseType: "arraybuffer" })
-      ).data;
-      fs.writeFileSync(filePath, Buffer.from(vid, "utf-8"));
-      const url = await global.utils.shortenURL(data.result);
-      api.setMessageReaction("✅", event.messageID, (err) => {}, true);
+
+      api.setMessageReaction("⏳", event.messageID, () => {}, true);
+
+      const base = await baseApiUrl();
+      const apiUrl = `${base}/api/download/video?link=${encodeURIComponent(link)}`;
+
+      const response = await axios({
+        method: "GET",
+        url: apiUrl,
+        responseType: "arraybuffer",
+        headers: { "User-Agent": "Mozilla/5.0" }
+      });
+
+      fs.writeFileSync(filePath, Buffer.from(response.data));
+
+      const stats = fs.statSync(filePath);
+      if (stats.size < 100) {
+        fs.unlinkSync(filePath);
+        return;
+      }
+
+      api.setMessageReaction("🔥", event.messageID, () => {}, true);
+
       api.sendMessage({
-          body: `${data.cp || null}\nLink = ${url || null}`,
-          attachment: fs.createReadStream(filePath),
-        },
-        event.threadID,
-        () => fs.unlinkSync(filePath),
-        event.messageID
-      );
-      if (dipto.startsWith("https://i.imgur.com")) {
-        const dipto3 = dipto.substring(dipto.lastIndexOf("."));
-        const response = await axios.get(dipto, {
-          responseType: "arraybuffer",
-        });
-        const filename = __dirname + `/cache/dipto${dipto3}`;
-        fs.writeFileSync(filename, Buffer.from(response.data, "binary"));
-        api.sendMessage({
-            body: `✅ | Downloaded from link`,
-            attachment: fs.createReadStream(filename),
-          },
-          event.threadID,
-          () => fs.unlinkSync(filename),
-          event.messageID,
-        );
-      }
-    } catch (error) {
-      api.setMessageReaction("❎", event.messageID, (err) => {}, true);
-      api.sendMessage(error.message, event.threadID, event.messageID);
+        body:
+`╔══════════════╗
+   🤖 AUTO DOWNLOAD
+╚══════════════╝
+
+📡 Platform: ${platform}
+📦 Size: ${(stats.size / 1024 / 1024).toFixed(2)} MB
+
+⬇️ Auto Download Complete`,
+        attachment: fs.createReadStream(filePath)
+      }, event.threadID, () => {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      });
+
+    } catch (err) {
+      console.log("AutoDL Error:", err);
     }
-  },
+  }
 };
