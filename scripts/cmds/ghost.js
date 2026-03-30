@@ -4,7 +4,7 @@ const path = __dirname + "/cache/unsendData.json";
 module.exports = {
 	config: {
 		name: "ghost",
-		version: "5.0.0",
+		version: "7.0.0",
 		author: "Hasan X Fix",
 		category: "system"
 	},
@@ -28,6 +28,7 @@ module.exports = {
 			unsendData[threadID].messages[messageID] = {
 				senderID,
 				body: body || "📎 Attachment",
+				time: new Date().toLocaleString(),
 				attachments: attachments?.map(att => att.url) || []
 			};
 
@@ -41,7 +42,7 @@ module.exports = {
 			const info = unsendData[threadID].messages[event.messageID];
 			if (!info) return;
 
-			// ❗ Bot নিজের unsend ignore
+			// Ignore bot unsend
 			if (info.senderID == api.getCurrentUserID()) return;
 
 			const userName = await usersData.getName(info.senderID);
@@ -49,22 +50,30 @@ module.exports = {
 			let msg = `
 ⚠️ UNSEND ALERT ⚠️
 
-😈 ${userName} একটা মেসেজ ডিলিট করছে!
+😈 Name: ${userName}
+🕒 Time: ${info.time}
 
-💬 Message:
+🗑️ Deleted Message:
 ${info.body}
 `;
 
 			if (info.attachments.length > 0) {
-				return api.sendMessage({
+				await api.sendMessage({
 					body: msg,
 					attachment: await Promise.all(
 						info.attachments.map(url => global.utils.getStreamFromURL(url))
 					)
 				}, threadID);
+			} else {
+				api.sendMessage(msg, threadID);
 			}
 
-			api.sendMessage(msg, threadID);
+			// React
+			api.setMessageReaction("😈", event.messageID, () => {}, true);
+
+			// Delete from file
+			delete unsendData[threadID].messages[event.messageID];
+			fs.writeJsonSync(path, unsendData);
 		}
 	},
 
@@ -78,27 +87,21 @@ ${info.body}
 			unsendData[threadID] = { status: true, messages: {} };
 		}
 
-		// ❗ এখন সবাই off করতে পারবে
 		if (args[0] === "off") {
 			unsendData[threadID].status = false;
 			fs.writeJsonSync(path, unsendData);
-			return api.sendMessage("❌ Ghost OFF (by user)", threadID);
+			return api.sendMessage("❌ Ghost OFF", threadID);
 		}
 
-		// ❗ শুধু admin ON করতে পারবে
 		if (args[0] === "on") {
-			const threadInfo = await api.getThreadInfo(threadID);
-			const adminIDs = threadInfo.adminIDs.map(a => a.id);
-
-			if (!adminIDs.includes(event.senderID)) {
-				return api.sendMessage("⚠️ Only admin can turn ON", threadID);
-			}
-
 			unsendData[threadID].status = true;
 			fs.writeJsonSync(path, unsendData);
 			return api.sendMessage("✅ Ghost ON", threadID);
 		}
 
-		return api.sendMessage("📌 Use: /ghost on /ghost off", threadID);
+		return api.sendMessage(
+			"👻 Ghost System\n\nUse:\nghost on\nghost off",
+			threadID
+		);
 	}
 };
