@@ -1,147 +1,133 @@
+const fs = require("fs-extra");
+const path = require("path");
+const axios = require("axios");
 const { getPrefix } = global.utils;
 const { commands, aliases } = global.GoatBot;
-const fs = require("fs");
-const path = require("path");
 
 module.exports = {
   config: {
     name: "help",
-    version: "3.0",
-    author: "Hasan X Dark",
+    version: "4.0",
+    author: "Hasan X Fix",
     countDown: 5,
     role: 0,
-    shortDescription: {
-      en: "Dark Help Menu",
-    },
-    longDescription: {
-      en: "View all commands",
-    },
+    shortDescription: { en: "View command usage" },
+    longDescription: { en: "View all commands and command details" },
     category: "info",
-    guide: {
-      en: "help or help cmdName",
-    },
+    guide: { en: "{pn}help / {pn}help cmdName" },
     priority: 1,
   },
 
-  onStart: async function ({ message, args, event, threadsData, role }) {
-    const { threadID } = event;
-    const prefix = getPrefix(threadID);
+  onStart: async function ({ message, args, event, role }) {
+    const prefix = getPrefix(event.threadID);
 
-    // RANDOM VIDEO SYSTEM
-    const videoFolder = __dirname + "/cache/helpvideo";
-    let attachment = [];
-
-    if (fs.existsSync(videoFolder)) {
-      const files = fs.readdirSync(videoFolder).filter(file => file.endsWith(".mp4"));
-      if (files.length > 0) {
-        const randomFiles = files.sort(() => 0.5 - Math.random()).slice(0, 2);
-        for (const file of randomFiles) {
-          attachment.push(fs.createReadStream(path.join(videoFolder, file)));
-        }
-      }
-    }
-
-    // MAIN HELP MENU
-    if (args.length === 0) {
+    // ================= ALL COMMAND =================
+    if (!args.length) {
       const categories = {};
-      let msg = "";
-
-      msg += `╔════════════════════╗
-      🌑 𝐃𝐀𝐑𝐊 𝐇𝐄𝐋𝐏 𝐌𝐄𝐍𝐔 🌑
-╚════════════════════╝`;
+      let msg = `
+╔══════════════════════╗
+      🤖 𝗕𝗢𝗧 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦
+╚══════════════════════╝
+`;
 
       for (const [name, value] of commands) {
         if (value.config.role > 1 && role < value.config.role) continue;
 
-        const category = value.config.category || "Uncategorized";
-        categories[category] = categories[category] || [];
+        const category = value.config.category || "other";
+        if (!categories[category]) categories[category] = [];
         categories[category].push(name);
       }
 
-      Object.keys(categories).forEach((category) => {
-        msg += `\n\n╭──『 ${category.toUpperCase()} 』`;
-
-        const names = categories[category].sort();
-        for (let i = 0; i < names.length; i += 2) {
-          msg += `\n│ ✦ ${names[i]} ${names[i + 1] ? "│ ✦ " + names[i + 1] : ""}`;
-        }
-
-        msg += `\n╰──────────────`;
-      });
-
-      msg += `
-
-╭──────────────
-│ 🤖 Total Commands: ${commands.size}
-│ ⚡ Prefix: ${prefix}
-│ 📌 Type: ${prefix}help <command>
-│ 👑 Admin: Mehedi Hasan
-╰──────────────`;
-
-      const sendMsg = await message.reply({
-        body: msg,
-        attachment
-      });
-
-      setTimeout(() => {
-        message.unsend(sendMsg.messageID);
-      }, 90000);
-    }
-
-    // COMMAND INFO
-    else {
-      const commandName = args[0].toLowerCase();
-      const command = commands.get(commandName) || commands.get(aliases.get(commandName));
-
-      if (!command) {
-        return message.reply("❌ Command not found");
+      for (const category of Object.keys(categories)) {
+        msg += `\n╭───〔 ${category.toUpperCase()} 〕───╮`;
+        categories[category].sort().forEach(cmd => {
+          msg += `\n│ ✦ ${cmd}`;
+        });
+        msg += `\n╰────────────────╯\n`;
       }
 
-      const configCommand = command.config;
-      const roleText = roleTextToString(configCommand.role);
-      const author = configCommand.author || "Unknown";
+      msg += `
+╔══════════════════════╗
+┃ 📊 Total Commands: ${commands.size}
+┃ ⚡ Prefix: ${prefix}
+┃ 👑 Owner: Hasan
+┃ 🚀 Status: Online
+╚══════════════════════╝
+`;
 
-      const longDescription = configCommand.longDescription
-        ? configCommand.longDescription.en || "No description"
-        : "No description";
+      // ===== FAST VIDEO =====
+      try {
+        const cacheDir = path.join(__dirname, "cache");
+        if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
 
-      const guideBody = configCommand.guide?.en || "No guide available.";
-      const usage = guideBody.replace(/{he}/g, prefix).replace(/{lp}/g, configCommand.name);
+        const filePath = path.join(cacheDir, `help_${Date.now()}.mp4`);
 
-      const response = `╔══════════════════╗
-      🌑 COMMAND INFO 🌑
-╚══════════════════╝
-│ 🎀 Name: ${configCommand.name}
-│ 📃 Aliases: ${configCommand.aliases ? configCommand.aliases.join(", ") : "None"}
-│ 📝 Description: ${longDescription}
-│ 👑 Bot Admin: Mehedi Hasan
-│ 🧑‍💻 Author: ${author}
-│ 📚 Guide: ${usage}
-│ ⭐ Version: ${configCommand.version || "1.0"}
-│ ♻️ Role: ${roleText}
-╰────────────────`;
+        const res = await axios.get(
+          "https://www.tikwm.com/api/feed/search?keywords=anime%20edit",
+          { timeout: 5000 }
+        );
 
-      const helpMessage = await message.reply({
-        body: response,
-        attachment
-      });
+        const videos = res?.data?.data?.videos || [];
 
-      setTimeout(() => {
-        message.unsend(helpMessage.messageID);
-      }, 90000);
+        if (videos.length > 0) {
+          const videoUrl = videos[Math.floor(Math.random() * videos.length)].play;
+
+          const video = await axios.get(videoUrl, {
+            responseType: "arraybuffer",
+            timeout: 10000
+          });
+
+          fs.writeFileSync(filePath, Buffer.from(video.data));
+
+          await message.reply({
+            body: msg,
+            attachment: fs.createReadStream(filePath)
+          });
+
+          setTimeout(() => {
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          }, 5000);
+
+          return;
+        }
+      } catch (e) {
+        console.log("Video error:", e.message);
+      }
+
+      return message.reply(msg);
     }
-  },
-};
 
-function roleTextToString(role) {
-  switch (role) {
-    case 0:
-      return "All Users";
-    case 1:
-      return "Group Admin";
-    case 2:
-      return "Bot Admin";
-    default:
-      return "Unknown";
+    // ================= SINGLE COMMAND =================
+    else {
+      const cmdName = args[0].toLowerCase();
+      const command = commands.get(cmdName) || commands.get(aliases.get(cmdName));
+
+      if (!command) {
+        return message.reply(`❌ Command "${cmdName}" not found`);
+      }
+
+      const config = command.config;
+
+      const usage =
+        config.guide?.en?.replace(/{pn}/g, prefix) ||
+        `${prefix}${config.name}`;
+
+      const msg = `
+╔══════════════════════╗
+        ⚙️ COMMAND INFO
+╚══════════════════════╝
+┃ 📛 Name: ${config.name}
+┃ 👑 Author: ${config.author}
+┃ 📦 Version: ${config.version || "1.0"}
+┃ 🔰 Role: ${config.role || 0}
+┃ 📂 Category: ${config.category}
+┣━━━━━━━━━━━━━━━━━━━━━━
+┃ 📖 Usage:
+┃ ${usage}
+╚━━━━━━━━━━━━━━━━━━━━━━╝
+`;
+
+      return message.reply(msg);
+    }
   }
-		  }
+};
