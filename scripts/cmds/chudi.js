@@ -3,21 +3,35 @@ module.exports = {
     name: "cudi",
     version: "1.0",
     role: 2,
-    author: "SaGor",
+    author: "♡︎ 𝗦𝗵𝗔𝗻 ♡︎",
     description: "a simple cuda cudi commands 😞",
-    category: "nsfw",
-    guide: " please @mention",
+    category: "fun",
+    guide: " please @mention or reply",
     countDown: 10
   },
 
-  onStart: async function({ api, args, Users, event }) {
-    var mention = Object.keys(event.mentions)[0];
-    if(!mention) return api.sendMessage("বস খানকিরপুলারে একটা মেনশন দেন-!!🫂", event.threadID);
-    let name =  event.mentions[mention];
-    var arraytag = [];
-    arraytag.push({id: mention, tag: name});
+  onStart: async function({ api, event }) {
+    let targetID, name;
+    
+    if (event.messageReply) {
+        targetID = event.messageReply.senderID;
+        const userInfo = await api.getUserInfo(targetID);
+        name = userInfo[targetID].name;
+    } 
+    else if (Object.keys(event.mentions).length > 0) {
+        targetID = Object.keys(event.mentions)[0];
+        const userInfo = await api.getUserInfo(targetID);
+        name = userInfo[targetID].name;
+    } 
+    else {
+        return api.sendMessage("বস খানকিরপুলারে একটা মেনশন দেন-!!🫂", event.threadID, event.messageID);
+    }
+
+    var arraytag = [{ id: targetID, tag: name }];
+
     var a = function (a) { api.sendMessage(a, event.threadID); }
     a("তোরে চুদলো ");
+
 setTimeout(() => {a({body: "ভোদাই জানে চোদার মজা তোর মাকে জিজ্ঞেস কর কেমন দিছিলাম চোদা 🥰।" + " নিশি রাতে তোর মাকে চুদে পেয়েছিলাম অনেক আনন্দ।🤩✊🏻 " + name, mentions: arraytag})}, 3000);
 setTimeout(() => {a({body: "খাংকির পোলা তর কচি বোন রে চুদি 😍.." + " " + name, mentions: arraytag})}, 5000);
 setTimeout(() => {a({body: "মাদারচোদ তর আম্মু পম পম খাংকির পো 🐰" + " " + name, mentions: arraytag})}, 7000);
