@@ -1,48 +1,67 @@
 module.exports = {
   config: {
     name: "antiout",
-    version: "1.0",
-    author: "AceGun",
-    countDown: 5,
+    version: "4.0",
+    author: "Hasan X",
     role: 0,
-    shortDescription: "Enable or disable antiout",
-    longDescription: "",
+    shortDescription: "Anti Leave System",
     category: "boxchat",
-    guide: "{pn} {{[on | off]}}",
-    envConfig: {
-      deltaNext: 5
-    }
+    guide: "{pn} on/off"
   },
-  onStart: async function({ message, event, threadsData, args }) {
-    let antiout = await threadsData.get(event.threadID, "settings.antiout");
-    if (antiout === undefined) {
-      await threadsData.set(event.threadID, true, "settings.antiout");
-      antiout = true;
-    }
-    if (!["on", "off"].includes(args[0])) {
-      return message.reply("Please use 'on' or 'off' as an argument");
-    }
-    await threadsData.set(event.threadID, args[0] === "on", "settings.antiout");
-    return message.reply(`Antiout has been ${args[0] === "on" ? "enabled" : "disabled"}.`);
-  },
-  onEvent: async function({ api, event, threadsData }) {
-    const antiout = await threadsData.get(event.threadID, "settings.antiout");
-    if (antiout && event.logMessageData && event.logMessageData.leftParticipantFbId) {
-      // A user has left the chat, get their user ID
-      const userId = event.logMessageData.leftParticipantFbId;
 
-      // Check if the user is still in the chat
-      const threadInfo = await api.getThreadInfo(event.threadID);
-      const userIndex = threadInfo.participantIDs.indexOf(userId);
-      if (userIndex === -1) {
-        // The user is not in the chat, add them back
-        const addUser = await api.addUserToGroup(userId, event.threadID);
-        if (addUser) {
-          console.log(`User ${userId} was added back to the group chat you can't escape 🧟.`);
-        } else {
-          console.log(`Failed to add user ${userId} back to the group chat.`);
-        }
-      }
+  onStart: async function ({ message, event, threadsData, args }) {
+    if (!args[0]) 
+      return message.reply("Use: antiout on / off");
+
+    if (args[0] == "on") {
+      await threadsData.set(event.threadID, true, "antiout");
+      return message.reply("🐸 | Antiout turned ON");
+    }
+
+    if (args[0] == "off") {
+      await threadsData.set(event.threadID, false, "antiout");
+      return message.reply("🐸 | Antiout turned OFF");
+    }
+  },
+
+  onEvent: async function ({ api, event, threadsData, usersData }) {
+    if (event.logMessageType !== "log:unsubscribe") return;
+
+    const status = await threadsData.get(event.threadID, "antiout");
+    if (!status) return;
+
+    const leftID = event.logMessageData.leftParticipantFbId;
+    const botID = api.getCurrentUserID();
+
+    // Ignore bot leave
+    if (leftID == botID) return;
+
+    try {
+      await api.addUserToGroup(leftID, event.threadID);
+
+      const name = await usersData.getName(leftID);
+
+      const msgs = [
+        "🚪 এই দরজা দিয়ে পালানো নিষেধ!",
+        "🐸 পালাতে গেছিলি? আবার ধরে আনলাম!",
+        "🔒 এই গ্রুপ জেলখানা, বের হওয়া যাবে না!",
+        "😹 পালাইতে গিয়া ধরা খাইছিস!",
+        "📢 Admin permission ছাড়া leave মানা!",
+        "🏃‍♂️ পালানোর চেষ্টা ব্যর্থ!"
+      ];
+
+      const random = msgs[Math.floor(Math.random() * msgs.length)];
+
+      api.sendMessage({
+        body: `@${name} ${random}\n👉 হাসানের পারমিশন ছাড়া lift নেয়া যাবে না 🐸✌️`,
+        mentions: [{
+          tag: name,
+          id: leftID
+        }]
+      }, event.threadID);
+
+    } catch (e) {
+      console.log("Antiout Error:", e);
     }
   }
 };
