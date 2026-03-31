@@ -1,5 +1,5 @@
 const axios = require("axios");
-const { getStreamFromURL, shortenURL, randomString } = global.utils;
+const { getStreamFromURL, shortenURL } = global.utils;
 
 async function fetchTikTokVideos(query) {
   try {
@@ -15,76 +15,93 @@ module.exports = {
   config: {
     name: "lyricvideo",
     aliases: ["lv"],
-    author: "Vex_kshitiz",
-    version: "1.0",
+    author: "Vex_kshitiz + Nazim Edit",
+    version: "2.0",
     shortDescription: {
-      en: "Play a lyric video",
+      en: "Play lyric video",
     },
     longDescription: {
-      en: "Search for a lyrical video based on the provided query",
+      en: "Search and send lyric video from TikTok",
     },
-    category: "fun",
+    category: "media",
     guide: {
-      en: "{p}{n} [query]",
+      en: "{p}{n} [song name] or reply audio/video",
     },
   },
+
   onStart: async function ({ api, event, args, message }) {
-    api.setMessageReaction("✨", event.messageID, (err) => {}, true);
+
+    // 🔥 Reaction Loading
+    api.setMessageReaction("⏳", event.messageID, () => {}, true);
+
+    // 💖 Stylish Waiting Message
+    const waitingMsg = await message.reply(
+      "૮ ˶ᵔ ᵕ ᵔ˶ ა 𝑩𝒂𝒃𝒚 𝒊𝒔 𝒇𝒊𝒏𝒅𝒊𝒏𝒈 𝒚𝒐𝒖𝒓 𝒗𝒊𝒅𝒆𝒐..."
+    );
 
     try {
       let query = '';
 
-      if (event.messageReply && event.messageReply.attachments && event.messageReply.attachments.length > 0) {
+      // 🎵 If reply audio/video
+      if (event.messageReply && event.messageReply.attachments.length > 0) {
         const attachment = event.messageReply.attachments[0];
-        if (attachment.type === "video" || attachment.type === "audio") {
-          const shortUrl = attachment.url;
-       
-          query = await shortenURL(shortUrl);
 
-        
-          const musicRecognitionResponse = await axios.get(`https://audio-reco.onrender.com/kshitiz?url=${encodeURIComponent(shortUrl)}`);
+        if (attachment.type === "video" || attachment.type === "audio") {
+          const url = attachment.url;
+
+          const musicRecognitionResponse = await axios.get(
+            `https://audio-reco.onrender.com/kshitiz?url=${encodeURIComponent(url)}`
+          );
+
           query = musicRecognitionResponse.data.title;
         } else {
-          throw new Error("Invalid attachment type.");
+          return message.reply("❌ | Reply only audio or video.");
         }
+
       } else if (args.length > 0) {
-       
         query = args.join(" ");
       } else {
-        api.sendMessage({ body: "Please provide a search query or reply to an audio or video." }, event.threadID, event.messageID);
-        return;
+        return message.reply("⚠️ | Enter song name or reply audio/video.");
       }
 
-     
-      query += "lyricsvideoedit";
+      query += " lyricsvideoedit";
 
-  
       const videos = await fetchTikTokVideos(query);
 
       if (!videos || videos.length === 0) {
-        api.sendMessage({ body: `${query} not found.` }, event.threadID, event.messageID);
-        return;
+        await api.unsendMessage(waitingMsg.messageID);
+        return message.reply("❌ | Video not found.");
       }
 
-   
-      const selectedVideo = videos[Math.floor(Math.random() * videos.length)];
-      const videoUrl = selectedVideo.videoUrl;
+      const randomVideo = videos[Math.floor(Math.random() * videos.length)];
+      const videoUrl = randomVideo.videoUrl;
 
       if (!videoUrl) {
-        api.sendMessage({ body: 'Error: Piw Piw Chat Bot Video not found.' }, event.threadID, event.messageID);
-        return;
+        await api.unsendMessage(waitingMsg.messageID);
+        return message.reply("❌ | Video URL missing.");
       }
 
-     
       const videoStream = await getStreamFromURL(videoUrl);
+
+      // 🧹 Remove waiting message
+      await api.unsendMessage(waitingMsg.messageID);
+
+      // 📤 Send video
       await api.sendMessage({
-        body: ``,
-        attachment: videoStream,
+        body: "💖 𝑯𝒆𝒓𝒆 𝒊𝒔 𝒚𝒐𝒖𝒓 𝑳𝒚𝒓𝒊𝒄 𝑽𝒊𝒅𝒆𝒐...",
+        attachment: videoStream
       }, event.threadID, event.messageID);
+
+      // ✅ Done Reaction
+      api.setMessageReaction("✅", event.messageID, () => {}, true);
 
     } catch (error) {
       console.error(error);
-      api.sendMessage({ body: 'An error occurred while processing the video.\nPlease try again later.' }, event.threadID, event.messageID);
+
+      await api.unsendMessage(waitingMsg.messageID);
+
+      message.reply("❌ | Error while processing video.");
+      api.setMessageReaction("❌", event.messageID, () => {}, true);
     }
   },
 };
