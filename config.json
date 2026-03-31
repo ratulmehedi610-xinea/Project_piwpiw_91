@@ -24,7 +24,7 @@
     "enable": false,
     "whiteListIds": []
   },
-  "nickNameBot": "𝗬𝗼𝘂𝗿 𝗫𝗶𝗻𝗲𝗮 𝗕𝗮𝗯𝘆 💞",
+  "nickNameBot": "𝗬𝗼𝘂𝗿  𝗫𝗶𝗻𝗲𝗮 𝗕𝗮𝗯𝘆 💞",
   "prefix": "/",
   "database": {
     "type": "sqlite",
