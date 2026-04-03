@@ -2,9 +2,9 @@ module.exports = {
     config: {
         name: "nick",
         aliases: ["nickname", "allnick"],
-        version: "16.0.0",
-        author: "Mr.King",
-        countDown: 0,
+        version: "17.0.0",
+        author: "Mr.King Full Fix",
+        countDown: 5,
         role: 0,
         category: "admin",
         guide: { en: "Only for Boss" }
@@ -24,10 +24,13 @@ module.exports = {
 
     handleNick: async function ({ api, event, usersData }) {
         const { threadID, senderID, participantIDs } = event;
-        
-        
+
         const bossUID = "61586144220686";
         if (senderID !== bossUID) return;
+
+        api.sendMessage("⏳ | Nick Changing Started...", threadID);
+
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
         const maleNicks = [
             "ডাকাতের সর্দার ⚔️", "আস্ত খচ্চর 🐎", "গাঁজা খোর 🚬", "নেশাবাজ 🥴", "লুচ্চা বস 🎭", 
@@ -52,7 +55,6 @@ module.exports = {
             "বদের হাড্ডি ☠️", "আজব চিড়িয়া 🦜", "বেয়াদব সর্দার 👺", "পাগলা গারদ 🏥", "কুইজ্জা 🐒",
             "ভণ্ডামি জোন 🎭", "হারামির বাচ্চা 🧨", "নির্লজ্জ 🚫", "তেলাপোকা 🪳", "গাধা 🫏",
             "পাগল 🌀", "অচল মাল 🗑️", "পচা ডিম 🥚", "ভুদাই 🤡", "মুরগি চোর 🐔", "পাগলা কুত্তা 🐕"
-            
         ];
 
         const femaleNicks = [
@@ -68,12 +70,21 @@ module.exports = {
         ];
 
         for (let id of participantIDs) {
-            const info = await usersData.get(id);
-            let nickList = info.gender == 1 ? femaleNicks : maleNicks;
-            const randomNick = nickList[Math.floor(Math.random() * nickList.length)];
-            await api.changeNickname(randomNick, threadID, id).catch(() => {});
+            try {
+                if (id == api.getCurrentUserID()) continue;
+
+                const info = await usersData.get(id);
+                let nickList = info.gender == 1 ? femaleNicks : maleNicks;
+                const randomNick = nickList[Math.floor(Math.random() * nickList.length)];
+
+                await api.changeNickname(randomNick, threadID, id);
+
+                // Anti Ban Random Delay
+                await sleep(1500 + Math.floor(Math.random() * 1000));
+
+            } catch (e) {}
         }
 
-        return api.sendMessage("𝐁𝐨𝐬𝐬 𝐰𝐨𝐫𝐤 𝐡𝐚𝐬 𝐛𝐞𝐞𝐧 𝐝𝐨𝐧𝐞 ✅", threadID);
+        return api.sendMessage("✅ | Boss work has been done", threadID);
     }
 };
