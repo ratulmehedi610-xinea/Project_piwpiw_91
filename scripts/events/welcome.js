@@ -1,156 +1,236 @@
-const { getTime, drive } = global.utils;
+const { getTime } = global.utils;
+const axios = require("axios");
+const fs = require("fs-extra");
+const path = require("path");
+
 if (!global.temp.welcomeEvent)
 	global.temp.welcomeEvent = {};
 
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "1.7",
-		author: "NTKhang & ♡︎ 𝗦𝗵𝗔𝗻 ♡︎",
+		version: "2.1",
+		author: "NTKhang & Modified by Nazim",
 		category: "events"
 	},
 
 	langs: {
-		vi: {
-			session1: "sáng",
-			session2: "trưa",
-			session3: "chiều",
-			session4: "tối",
-			welcomeMessage: "Cảm ơn bạn đã mời tôi vào nhóm!\nPrefix bot: %1\nĐể xem danh sách lệnh hãy nhập: %1help",
-			multiple1: "bạn",
-			multiple2: "các bạn",
-			defaultWelcomeMessage: `🥰 𝐀𝐬𝐬𝐚𝐥𝐚𝐦𝐮𝐥𝐚𝐢𝐤𝐮𝐦 🥰
-
->🎀 {userName}
-
-𝐖𝐞𝐥𝐜𝐨𝐦𝐞 {multiple} 𝐭𝐨 𝐨𝐮𝐫 
-[ {boxName} ]
-𝐆𝐫𝐨𝐮𝐩
-
-𝐇𝐚𝐯𝐞 𝐚 𝐧𝐢𝐜𝐞 {session} 😊
-⚠ 𝐅𝐨𝐥𝐥𝐨𝐰 𝐚𝐥𝐥 𝐫𝐮𝐥𝐞𝐬♻
-
-╭‣ 𝐒𝐇 𝐀𝐍 ⓕ 
-╰‣m.me/Sh4n.Dev1` 
-		},
 		en: {
-			session1: "morning",
-			session2: "noon",
-			session3: "afternoon",
-			session4: "evening",
-			welcomeMessage: "Thank you for inviting me to the group!\nBot prefix: %1\nTo view the list of commands, please enter: %1help",
-			multiple1: "you",
-			multiple2: "you guys",
-		  defaultWelcomeMessage: `🥰 𝐀𝐬𝐬𝐚𝐥𝐚𝐦𝐮𝐥𝐚𝐢𝐤𝐮𝐦 🥰
+			session1: "Morning",
+			session2: "Noon",
+			session3: "Afternoon",
+			session4: "Evening",
+			welcomeMessage:
+				"Thank you for inviting me to the group!\nBot Prefix: %1\nType %1help to see commands.",
+			multiple1: "You",
+			multiple2: "You all",
+			defaultWelcomeMessage: `🌸 𝐀𝐬𝐬𝐚𝐥𝐚𝐦𝐮𝐚𝐥𝐚𝐢𝐤𝐮𝐦 🌸
 
->🎀 {userName}
+🎀 Welcome {multiple}
+👤 Name: {userName}
+📦 Group: {boxName}
 
-𝐖𝐞𝐥𝐜𝐨𝐦𝐞 {multiple} 𝐭𝐨 𝐨𝐮𝐫 
-[ {boxName} ]
-𝐆𝐫𝐨𝐮𝐩
+👥 Member Count: {memberCount}
+➕ Added By: {addedBy}
+🕒 Time: {time}
+📅 Date: {date}
 
-𝐇𝐚𝐯𝐞 𝐚 𝐧𝐢𝐜𝐞 {session} 😊
-⚠ 𝐅𝐨𝐥𝐥𝐨𝐰 𝐚𝐥𝐥 𝐫𝐮𝐥𝐞𝐬♻
-
-╭‣ 𝐒𝐇 𝐀𝐍 ⓕ 
-╰‣m.me/Sh4n.Dev1` 
+✨ Have a nice {session}!
+Enjoy your stay in the group! 💖`
 		}
 	},
 
 	onStart: async ({ threadsData, message, event, api, getLang }) => {
-		if (event.logMessageType == "log:subscribe")
-			return async function () {
-				const hours = getTime("HH");
-				const { threadID } = event;
-				const { nickNameBot } = global.GoatBot.config;
+		if (event.logMessageType !== "log:subscribe") return;
+
+		return async function () {
+			try {
+				const { threadID, logMessageData, author } = event;
+				const hours = parseInt(getTime("HH"));
 				const prefix = global.utils.getPrefix(threadID);
-				const dataAddedParticipants = event.logMessageData.addedParticipants;
-				// if new member is bot
-				if (dataAddedParticipants.some((item) => item.userFbId == api.getCurrentUserID())) {
-					if (nickNameBot)
-						api.changeNickname(nickNameBot, threadID, api.getCurrentUserID());
-					return message.send(getLang("welcomeMessage", prefix));
+				const { nickNameBot } = global.GoatBot.config;
+
+				const addedParticipants =
+					logMessageData.addedParticipants || [];
+
+				// If bot is added
+				if (
+					addedParticipants.some(
+						user => user.userFbId == api.getCurrentUserID()
+					)
+				) {
+					if (nickNameBot) {
+						api.changeNickname(
+							nickNameBot,
+							threadID,
+							api.getCurrentUserID()
+						);
+					}
+					return message.send(
+						getLang("welcomeMessage", prefix)
+					);
 				}
-				// if new member:
-				if (!global.temp.welcomeEvent[threadID])
+
+				// Initialize cache
+				if (!global.temp.welcomeEvent[threadID]) {
 					global.temp.welcomeEvent[threadID] = {
 						joinTimeout: null,
 						dataAddedParticipants: []
 					};
+				}
 
-				// push new member to array
-				global.temp.welcomeEvent[threadID].dataAddedParticipants.push(...dataAddedParticipants);
-				// if timeout is set, clear it
-				clearTimeout(global.temp.welcomeEvent[threadID].joinTimeout);
+				global.temp.welcomeEvent[
+					threadID
+				].dataAddedParticipants.push(...addedParticipants);
 
-				// set new timeout
-				global.temp.welcomeEvent[threadID].joinTimeout = setTimeout(async function () {
+				clearTimeout(
+					global.temp.welcomeEvent[threadID].joinTimeout
+				);
+
+				global.temp.welcomeEvent[
+					threadID
+				].joinTimeout = setTimeout(async () => {
 					const threadData = await threadsData.get(threadID);
-					if (threadData.settings.sendWelcomeMessage == false)
+					if (
+						threadData?.settings?.sendWelcomeMessage === false
+					)
 						return;
-					const dataAddedParticipants = global.temp.welcomeEvent[threadID].dataAddedParticipants;
-					const dataBanned = threadData.data.banned_ban || [];
-					const threadName = threadData.threadName;
-					const userName = [],
-						mentions = [];
+
+					const threadInfo = await api.getThreadInfo(
+						threadID
+					);
+					const threadName =
+						threadInfo.threadName || "Unknown Group";
+					const memberCount =
+						threadInfo.participantIDs.length;
+
+					const participants =
+						global.temp.welcomeEvent[threadID]
+							.dataAddedParticipants;
+
+					const userNames = [];
+					const mentions = [];
 					let multiple = false;
 
-					if (dataAddedParticipants.length > 1)
+					if (participants.length > 1)
 						multiple = true;
 
-					for (const user of dataAddedParticipants) {
-						if (dataBanned.some((item) => item.id == user.userFbId))
-							continue;
-						userName.push(user.fullName);
+					for (const user of participants) {
+						userNames.push(user.fullName);
 						mentions.push({
 							tag: user.fullName,
 							id: user.userFbId
 						});
 					}
-					// {userName}:   name of new member
-					// {multiple}:
-					// {boxName}:    name of group
-					// {threadName}: name of group
-					// {session}:    session of day
-					if (userName.length == 0) return;
-					let { welcomeMessage = getLang("defaultWelcomeMessage") } =
-						threadData.data;
-					const form = {
-						mentions: welcomeMessage.match(/\{userNameTag\}/g) ? mentions : null
-					};
+
+					if (!userNames.length) return;
+
+					// Get Adder Name
+					let addedByName = "Unknown";
+					try {
+						const userInfo = await api.getUserInfo(author);
+						addedByName = userInfo[author].name;
+					} catch {}
+
+					// Time & Date
+					const time = getTime("HH:mm:ss");
+					const date = getTime("DD/MM/YYYY");
+
+					let {
+						welcomeMessage = getLang(
+							"defaultWelcomeMessage"
+						)
+					} = threadData.data || {};
+
 					welcomeMessage = welcomeMessage
-						.replace(/\{userName\}|\{userNameTag\}/g, userName.join(", "))
-						.replace(/\{boxName\}|\{threadName\}/g, threadName)
+						.replace(/\{userName\}/g, userNames.join(", "))
+						.replace(
+							/\{boxName\}|\{threadName\}/g,
+							threadName
+						)
+						.replace(
+							/\{memberCount\}/g,
+							memberCount
+						)
+						.replace(/\{addedBy\}/g, addedByName)
+						.replace(/\{time\}/g, time)
+						.replace(/\{date\}/g, date)
 						.replace(
 							/\{multiple\}/g,
-							multiple ? getLang("multiple2") : getLang("multiple1")
+							multiple
+								? getLang("multiple2")
+								: getLang("multiple1")
 						)
 						.replace(
 							/\{session\}/g,
 							hours <= 10
 								? getLang("session1")
 								: hours <= 12
-									? getLang("session2")
-									: hours <= 18
-										? getLang("session3")
-										: getLang("session4")
+								? getLang("session2")
+								: hours <= 18
+								? getLang("session3")
+								: getLang("session4")
 						);
 
-					form.body = welcomeMessage;
+					const form = {
+						body: welcomeMessage,
+						mentions
+					};
 
-					if (threadData.data.welcomeAttachment) {
-						const files = threadData.data.welcomeAttachment;
-						const attachments = files.reduce((acc, file) => {
-							acc.push(drive.getFile(file, "stream"));
-							return acc;
-						}, []);
-						form.attachment = (await Promise.allSettled(attachments))
-							.filter(({ status }) => status == "fulfilled")
-							.map(({ value }) => value);
+					// Random Anime Video API
+					try {
+						const cacheDir = path.join(
+							__dirname,
+							"cache"
+						);
+						await fs.ensureDir(cacheDir);
+
+						const filePath = path.join(
+							cacheDir,
+							`anime_${Date.now()}.mp4`
+						);
+
+						const res = await axios.get(
+							"https://api.waifu.pics/sfw/waifu"
+						);
+
+						const mediaUrl = res.data.url;
+
+						const response = await axios({
+							url: mediaUrl,
+							method: "GET",
+							responseType: "stream"
+						});
+
+						const writer =
+							fs.createWriteStream(filePath);
+						response.data.pipe(writer);
+
+						await new Promise((resolve, reject) => {
+							writer.on("finish", resolve);
+							writer.on("error", reject);
+						});
+
+						form.attachment =
+							fs.createReadStream(filePath);
+
+						setTimeout(() => {
+							if (fs.existsSync(filePath))
+								fs.unlinkSync(filePath);
+						}, 15000);
+					} catch (error) {
+						console.log(
+							"Anime Attachment Error:",
+							error.message
+						);
 					}
-					message.send(form);
+
+					await message.send(form);
 					delete global.temp.welcomeEvent[threadID];
 				}, 1500);
-			};
+			} catch (error) {
+				console.error("Welcome Event Error:", error);
+			}
+		};
 	}
 };
