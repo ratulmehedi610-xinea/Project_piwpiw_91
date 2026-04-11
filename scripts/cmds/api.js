@@ -6,90 +6,72 @@ const path = require("path");
 module.exports = {
   config: {
     name: "apivideo",
-    version: "1.2",
+    version: "5.0",
     author: "ChatGPT",
-    countDown: 5,
     role: 0,
-    shortDescription: {
-      en: "Create API video link"
-    },
-    longDescription: {
-      en: "Upload replied video and get a Catbox direct link"
-    },
-    category: "media",
-    guide: {
-      en: "{pn} (reply to a video)"
-    }
+    shortDescription: "Upload video → API link",
+    category: "media"
   },
 
   onStart: async function ({ event, message }) {
     try {
       const reply = event.messageReply;
 
-      // Step 1: Check if user replied to a video
-      if (!reply || !reply.attachments || reply.attachments.length === 0) {
-        return message.reply("❌ ভিডিওতে রিপ্লাই করুন।");
-      }
+      if (!reply || !reply.attachments || reply.attachments.length === 0)
+        return message.reply("❌ ভিডিওতে রিপ্লাই দাও");
 
-      const attachment = reply.attachments[0];
+      const video = reply.attachments[0];
 
-      if (attachment.type !== "video") {
-        return message.reply("❌ শুধুমাত্র ভিডিওতে রিপ্লাই করুন।");
-      }
+      if (video.type !== "video")
+        return message.reply("❌ এটা ভিডিও না");
 
-      await message.reply("⏳ ভিডিও প্রসেস হচ্ছে, অপেক্ষা করুন...");
+      await message.reply("⏳ আপলোড হচ্ছে...");
 
-      // Step 2: Create cache folder
       const cacheDir = path.join(__dirname, "cache");
       await fs.ensureDir(cacheDir);
 
-      const tempPath = path.join(cacheDir, `video_${Date.now()}.mp4`);
+      const filePath = path.join(cacheDir, `${Date.now()}.mp4`);
 
-      // Step 3: Download video
-      const videoData = await axios.get(attachment.url, {
+      // download
+      const res = await axios({
+        url: video.url,
+        method: "GET",
         responseType: "arraybuffer"
       });
 
-      await fs.writeFile(tempPath, videoData.data);
+      await fs.writeFile(filePath, res.data);
 
-      // Step 4: Upload to Catbox
+      // upload to catbox
       const form = new FormData();
       form.append("reqtype", "fileupload");
-      form.append("fileToUpload", fs.createReadStream(tempPath));
+      form.append("fileToUpload", fs.createReadStream(filePath));
 
       const upload = await axios.post(
         "https://catbox.moe/user/api.php",
         form,
-        {
-          headers: form.getHeaders(),
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity
-        }
+        { headers: form.getHeaders() }
       );
 
-      // Step 5: Delete temp file
-      await fs.unlink(tempPath);
+      const link = upload.data.trim();
 
-      const apiLink = upload.data.trim();
+      await fs.unlink(filePath);
 
-      if (!apiLink.startsWith("https://")) {
-        throw new Error("Invalid response from Catbox");
-      }
+      if (!link.startsWith("https://"))
+        return message.reply("❌ আপলোড ফেল");
 
-      // Step 6: Send result
+      // save for info
+      await fs.writeJson(
+        path.join(cacheDir, "apivideo.json"),
+        { url: link }
+      );
+
       return message.reply(
-        `✅ API ভিডিও তৈরি হয়েছে!\n\n🔗 ${apiLink}`
+        "✅ API VIDEO CREATED!\n\n🔗 " + link
       );
 
-    } catch (error) {
-      console.error("APIVIDEO ERROR:", error);
-      return message.reply(
-        "❌ কাজ করছে না!\nসম্ভাব্য কারণ:\n" +
-        "1️⃣ ভিডিও সাইজ বেশি\n" +
-        "2️⃣ বট সার্ভার স্লো\n" +
-        "3️⃣ Catbox সাময়িক বন্ধ\n\n" +
-        "🔄 ছোট ভিডিও দিয়ে আবার চেষ্টা করুন।"
-      );
+    } catch (e) {
+      console.log(e);
+      return message.reply("❌ Error হয়েছে");
     }
   }
 };
