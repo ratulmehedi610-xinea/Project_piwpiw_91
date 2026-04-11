@@ -6,10 +6,9 @@ const path = require("path");
 module.exports = {
   config: {
     name: "apivideo",
-    version: "5.0",
+    version: "10.0",
     author: "ChatGPT",
     role: 0,
-    shortDescription: "Upload video → API link",
     category: "media"
   },
 
@@ -17,25 +16,26 @@ module.exports = {
     try {
       const reply = event.messageReply;
 
-      if (!reply || !reply.attachments || reply.attachments.length === 0)
-        return message.reply("❌ ভিডিওতে রিপ্লাই দাও");
+      // ✅ accept ANY attachment type (video/file/image fallback)
+      if (!reply || !reply.attachments || !reply.attachments[0]) {
+        return message.reply("❌ ভিডিও/ফাইলে রিপ্লাই দাও");
+      }
 
-      const video = reply.attachments[0];
+      const file = reply.attachments[0];
 
-      if (video.type !== "video")
-        return message.reply("❌ এটা ভিডিও না");
+      if (!file.url) {
+        return message.reply("❌ ফাইল পাওয়া যায়নি");
+      }
 
-      await message.reply("⏳ আপলোড হচ্ছে...");
+      await message.reply("⏳ API তৈরি হচ্ছে...");
 
-      const cacheDir = path.join(__dirname, "cache");
-      await fs.ensureDir(cacheDir);
+      const cache = path.join(process.cwd(), "cache");
+      await fs.ensureDir(cache);
 
-      const filePath = path.join(cacheDir, `${Date.now()}.mp4`);
+      const filePath = path.join(cache, Date.now() + ".mp4");
 
-      // download
-      const res = await axios({
-        url: video.url,
-        method: "GET",
+      // ✅ download ANY file (video or not)
+      const res = await axios.get(file.url, {
         responseType: "arraybuffer"
       });
 
@@ -49,29 +49,34 @@ module.exports = {
       const upload = await axios.post(
         "https://catbox.moe/user/api.php",
         form,
-        { headers: form.getHeaders() }
+        {
+          headers: form.getHeaders(),
+          timeout: 30000
+        }
       );
 
-      const link = upload.data.trim();
+      await fs.remove(filePath);
 
-      await fs.unlink(filePath);
+      const link = (upload.data || "").trim();
 
-      if (!link.startsWith("https://"))
-        return message.reply("❌ আপলোড ফেল");
-
-      // save for info
-      await fs.writeJson(
-        path.join(cacheDir, "apivideo.json"),
-        { url: link }
-      );
+      if (!link.startsWith("http")) {
+        return message.reply("❌ Upload failed");
+      }
 
       return message.reply(
-        "✅ API VIDEO CREATED!\n\n🔗 " + link
+        "✅ API VIDEO READY!\n\n🔗 " + link
       );
 
-    } catch (e) {
-      console.log(e);
-      return message.reply("❌ Error হয়েছে");
+    } catch (err) {
+      console.log(err);
+      return message.reply(
+        "❌ Error!\n\n" +
+        "👉 কারণ:\n" +
+        "• Internet slow\n" +
+        "• hosting block\n" +
+        "• file too big\n\n" +
+        "🔄 আবার try করো"
+      );
     }
   }
 };
