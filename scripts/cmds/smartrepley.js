@@ -1,7 +1,7 @@
 const fs = require("fs-extra");
 const path = __dirname + "/cache/smartreply.json";
 
-// Stylish bold text
+// 🔥 Bold style
 function makeBold(text) {
   const fonts = {
     a:"𝐚",b:"𝐛",c:"𝐜",d:"𝐝",e:"𝐞",f:"𝐟",g:"𝐠",h:"𝐡",i:"𝐢",j:"𝐣",k:"𝐤",
@@ -17,68 +17,104 @@ function makeBold(text) {
 module.exports = {
 config: {
   name: "smartreply",
-  version: "1.0.0",
-  author: "Nazim X ChatGPT",
-  countDown: 0,
+  version: "3.0",
+  author: "Nazim Ultra Pro",
   role: 0,
-  shortDescription: "Auto Reply System 🤖",
   category: "fun",
+  shortDescription: "Smart Auto Reply 🤖",
   guide: {
-    en: "/smartreply add keyword = reply"
+    en: `
+/smartreply add keyword = reply
+/smartreply remove keyword
+/smartreply list
+`
   }
 },
 
-// 🔥 COMMAND
 onStart: async function ({ event, args, message }) {
   const myUID = "61586144220686";
 
   if (!fs.existsSync(path)) fs.writeJsonSync(path, {});
   let data = fs.readJsonSync(path);
 
-  // ADD SYSTEM
-  if (args[0] === "add") {
+  const cmd = args[0];
+
+  // 🔥 ADD
+  if (cmd === "add") {
     if (event.senderID !== myUID)
-      return message.reply("❌ শুধু আমার boss add করতে পারবে 😎");
+      return message.reply("❌ Boss ছাড়া add allowed না 😎");
 
     const content = args.slice(1).join(" ");
-    const parts = content.split("=");
+    const index = content.indexOf("=");
 
-    if (parts.length < 2) {
+    if (index === -1)
       return message.reply("📌 Use:\n/smartreply add keyword = reply");
-    }
 
-    const key = parts[0].toLowerCase().trim();
-    const reply = parts.slice(1).join("=").trim();
+    const key = content.slice(0, index).toLowerCase().trim();
+    const reply = content.slice(index + 1).trim();
+
+    if (!key || !reply)
+      return message.reply("❌ ভুল format 😒");
 
     data[key] = makeBold(reply);
     fs.writeJsonSync(path, data, { spaces: 2 });
 
-    return message.reply(`✅ Added:\n👉 ${key} → ${reply}`);
+    return message.reply(`✅ Added ✨\n👉 ${key}`);
+  }
+
+  // 🔥 REMOVE (same style as add)
+  if (cmd === "remove") {
+    if (event.senderID !== myUID)
+      return message.reply("❌ Boss ছাড়া remove allowed না 😎");
+
+    const key = args.slice(1).join(" ").toLowerCase().trim();
+
+    if (!data[key])
+      return message.reply("❌ এই keyword নাই 😒");
+
+    delete data[key];
+    fs.writeJsonSync(path, data, { spaces: 2 });
+
+    return message.reply(`🗑️ Removed ✨\n👉 ${key}`);
+  }
+
+  // 🔥 LIST
+  if (cmd === "list") {
+    const keys = Object.keys(data);
+
+    if (!keys.length)
+      return message.reply("📭 কিছু add করা নাই");
+
+    return message.reply(
+      "📜 𝐒𝐦𝐚𝐫𝐭 𝐑𝐞𝐩𝐥𝐲 𝐋𝐢𝐬𝐭 👇\n\n" +
+      keys.map((k, i) => `${i+1}. ${k}`).join("\n")
+    );
   }
 },
 
-// 🔥 AUTO REPLY
 onChat: async function ({ event, message, api }) {
   if (!event.body || event.senderID == api.getCurrentUserID()) return;
 
   if (!fs.existsSync(path)) fs.writeJsonSync(path, {});
   const data = fs.readJsonSync(path);
 
-  const input = event.body.toLowerCase().trim();
+  const input = event.body.toLowerCase();
 
-  // Boss protection 😈
+  // 🔥 Boss protection
   if (input.includes("nazim") || input.includes("boss")) {
     if (event.senderID !== "61586144220686") {
       return message.reply("😡 Boss কে disturb করিস না!");
     }
   }
 
-  // Custom replies
-  if (data[input]) {
-    return message.reply(data[input]);
+  // 🔥 Smart match (partial)
+  for (const key in data) {
+    if (input.includes(key)) {
+      return message.reply(data[key]);
+    }
   }
 
-  // Emoji auto reply
+  // 🔥 Emoji reply (styled)
   const autoReplies = {
     "😂": "এতো হাসিস কেন? 🤣",
     "😡": "রাগ কমা bro 😌",
@@ -88,13 +124,8 @@ onChat: async function ({ event, message, api }) {
     "🐸": "ব্যাঙ নাকি তুই? 🐸🤣"
   };
 
-  if (autoReplies[input]) {
-    return message.reply(makeBold(autoReplies[input]));
-  }
-
-  // Emoji inside text detect
   for (const [emoji, msg] of Object.entries(autoReplies)) {
-    if (event.body.includes(emoji)) {
+    if (input.includes(emoji)) {
       return message.reply(makeBold(msg));
     }
   }
