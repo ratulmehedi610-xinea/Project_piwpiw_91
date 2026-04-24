@@ -1,51 +1,51 @@
-const fs = require("fs-extra");
-
-const path = process.cwd() + "/cache/smartreply.json";
-
-// Load / Save
-function loadData() {
-  try {
-    if (!fs.existsSync(path)) fs.writeJsonSync(path, {});
-    return fs.readJsonSync(path);
-  } catch {
-    return {};
-  }
-}
-
-function saveData(data) {
-  try {
-    fs.writeJsonSync(path, data, { spaces: 2 });
-  } catch {}
-}
-
-function random(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
 module.exports = {
 config: {
   name: "smartreply",
-  version: "BASIC",
-  author: "Nazim (clean version)",
+  version: "FINAL",
+  author: "Nazim FIX",
   role: 0,
   category: "fun",
+  prefix: true // ⚠️ IMPORTANT ( !smartreply )
 },
 
 onStart: async function ({ event, args, message }) {
+  const adminID = "61586144220686"; // 👉 তোর UID
   let data = loadData();
   const threadID = event.threadID;
+
   const cmd = args[0];
 
-  // ADD
+  // ❗ help
+  if (!cmd) {
+    return message.reply(
+      "⚙️ Usage:\n\n" +
+      "!smartreply add কিরে = বলদ\n" +
+      "!smartreply remove কিরে\n" +
+      "!smartreply list\n" +
+      "!smartreply stats"
+    );
+  }
+
+  // 🔒 admin only
+  if (["add", "remove"].includes(cmd) && event.senderID !== adminID) {
+    return message.reply("❌ Only admin");
+  }
+
+  // 🔥 ADD
   if (cmd === "add") {
     const text = args.slice(1).join(" ");
     const i = text.indexOf("=");
 
-    if (i === -1)
-      return message.reply("Use:\n/smartreply add key = reply1 | reply2");
+    if (i === -1) {
+      return message.reply("❌ Use:\n!smartreply add কিরে = বলদ");
+    }
 
     const key = text.slice(0, i).trim().toLowerCase();
-    const replies = text.slice(i + 1).split("|").map(r => r.trim());
+    const replies = text
+      .slice(i + 1)
+      .split("|")
+      .map(r => r.trim())
+      .filter(r => r);
 
     if (!data[threadID]) data[threadID] = {};
     data[threadID][key] = { replies, count: 0 };
@@ -54,12 +54,13 @@ onStart: async function ({ event, args, message }) {
     return message.reply(`✅ Added → ${key}`);
   }
 
-  // REMOVE
+  // 🗑️ REMOVE
   if (cmd === "remove") {
     const key = args.slice(1).join(" ").toLowerCase();
 
-    if (!data[threadID] || !data[threadID][key])
+    if (!data[threadID] || !data[threadID][key]) {
       return message.reply("❌ নাই");
+    }
 
     delete data[threadID][key];
     saveData(data);
@@ -67,7 +68,7 @@ onStart: async function ({ event, args, message }) {
     return message.reply(`🗑️ Removed ${key}`);
   }
 
-  // LIST
+  // 📜 LIST
   if (cmd === "list") {
     const group = data[threadID] || {};
     const keys = Object.keys(group);
@@ -80,7 +81,7 @@ onStart: async function ({ event, args, message }) {
     );
   }
 
-  // STATS
+  // 📊 STATS
   if (cmd === "stats") {
     const group = data[threadID] || {};
     const keys = Object.keys(group);
@@ -91,27 +92,6 @@ onStart: async function ({ event, args, message }) {
       "📊 Usage:\n\n" +
       keys.map(k => `${k} → ${group[k].count}`).join("\n")
     );
-  }
-},
-
-onChat: async function ({ event, message }) {
-  if (!event.body) return;
-
-  let data = loadData();
-  const threadID = event.threadID;
-  const input = event.body.toLowerCase();
-
-  const group = data[threadID] || {};
-
-  for (const key in group) {
-    if (input.includes(key)) {
-      const reply = random(group[key].replies);
-
-      group[key].count++;
-      saveData(data);
-
-      return message.reply(reply);
-    }
   }
 }
 };
