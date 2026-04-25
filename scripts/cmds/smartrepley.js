@@ -1,144 +1,118 @@
 const fs = require("fs-extra");
+const path = __dirname + "/cache/smartreply.json";
 
-// 📁 file path
-const path = process.cwd() + "/cache/smartreply.json";
-
-// 📦 Load data
-function loadData() {
-  try {
-    if (!fs.existsSync(path)) fs.writeJsonSync(path, {});
-    return fs.readJsonSync(path);
-  } catch (e) {
-    return {};
-  }
-}
-
-// 💾 Save data
-function saveData(data) {
-  try {
-    fs.writeJsonSync(path, data, { spaces: 2 });
-  } catch (e) {}
-}
-
-module.exports = {
-config: {
+module.exports.config = {
   name: "smartreply",
-  version: "FIXED 1.0",
-  author: "Nazim + GPT",
-  role: 0,
-  category: "fun",
-  prefix: true
-},
+  version: "1.0.0",
+  hasPermssion: 0,
+  credits: "ChatGPT FIX",
+  description: "Auto reply system",
+  commandCategory: "group",
+  usages: "[add/remove/list/on/off]",
+  cooldowns: 3
+};
 
-onStart: async function ({ event, args, message }) {
-  const adminID = "61586144220686";
+// 🔹 file check
+function loadData() {
+  if (!fs.existsSync(path)) fs.writeJsonSync(path, { status: true, replies: {} });
+  return fs.readJsonSync(path);
+}
 
-  let data = loadData();
-  const threadID = event.threadID;
+function saveData(data) {
+  fs.writeJsonSync(path, data, { spaces: 2 });
+}
+
+// 🔥 COMMAND PART
+module.exports.run = async function ({ api, event, args }) {
+  const data = loadData();
+
   const cmd = args[0];
 
-  // help
-  if (!cmd) {
-    return message.reply(
-      "⚙️ SMARTREPLY COMMANDS:\n\n" +
-      "!smartreply add key = reply1 | reply2\n" +
-      "!smartreply remove key\n" +
-      "!smartreply list\n" +
-      "!smartreply stats"
-    );
-  }
-
-  // admin only for add/remove
-  if (["add", "remove"].includes(cmd) && event.senderID !== adminID) {
-    return message.reply("❌ Only admin can use this");
-  }
-
-  // 🔥 ADD
-  if (cmd === "add") {
-    const text = args.slice(1).join(" ");
-    const i = text.indexOf("=");
-
-    if (i === -1) {
-      return message.reply("❌ Format wrong\nUse: !smartreply add hi = hello | hey");
-    }
-
-    const key = text.slice(0, i).trim().toLowerCase();
-    const replies = text.slice(i + 1).split("|").map(r => r.trim()).filter(Boolean);
-
-    if (!data[threadID]) data[threadID] = {};
-    if (!data[threadID][key]) {
-      data[threadID][key] = { replies: [], count: 0 };
-    }
-
-    data[threadID][key].replies.push(...replies);
-
+  // 🔘 ON
+  if (cmd === "on") {
+    data.status = true;
     saveData(data);
-    return message.reply(`✅ Added → ${key}`);
+    return api.sendMessage("✅ SmartReply ON", event.threadID);
   }
 
-  // 🗑️ REMOVE
+  // 🔘 OFF
+  if (cmd === "off") {
+    data.status = false;
+    saveData(data);
+    return api.sendMessage("❌ SmartReply OFF", event.threadID);
+  }
+
+  // ➕ ADD
+  if (cmd === "add") {
+    const content = args.slice(1).join(" ");
+    const match = content.match(/"(.*?)"\s*:\s*"(.*?)"/);
+
+    if (!match) {
+      return api.sendMessage(
+        `⚠️ Use:\nsmartreply add "hi" : "hello"`,
+        event.threadID
+      );
+    }
+
+    const key = match[1].toLowerCase();
+    const value = match[2];
+
+    data.replies[key] = value;
+    saveData(data);
+
+    return api.sendMessage(`✅ Added: ${key}`, event.threadID);
+  }
+
+  // ➖ REMOVE
   if (cmd === "remove") {
     const key = args.slice(1).join(" ").toLowerCase();
 
-    if (!data[threadID] || !data[threadID][key]) {
-      return message.reply("❌ Not found");
+    if (!data.replies[key]) {
+      return api.sendMessage("❌ Not found!", event.threadID);
     }
 
-    delete data[threadID][key];
+    delete data.replies[key];
     saveData(data);
 
-    return message.reply(`🗑️ Removed → ${key}`);
+    return api.sendMessage(`🗑️ Removed: ${key}`, event.threadID);
   }
 
-  // 📜 LIST
+  // 📊 LIST
   if (cmd === "list") {
-    const group = data[threadID] || {};
-    const keys = Object.keys(group);
+    const keys = Object.keys(data.replies);
 
-    if (!keys.length) return message.reply("📭 Empty list");
+    if (keys.length === 0) {
+      return api.sendMessage("❌ No replies added!", event.threadID);
+    }
 
-    return message.reply(
-      "📜 SMARTREPLY LIST:\n\n" +
-      keys.map(k => `• ${k} (${group[k].replies.length})`).join("\n")
+    return api.sendMessage(
+      "📊 Smart Replies:\n\n" + keys.join("\n"),
+      event.threadID
     );
   }
 
-  // 📊 STATS
-  if (cmd === "stats") {
-    const group = data[threadID] || {};
-    const keys = Object.keys(group);
+  return api.sendMessage(
+    `📌 Use:
+smartreply on/off
+smartreply add "hi" : "hello"
+smartreply remove hi
+smartreply list`,
+    event.threadID
+  );
+};
 
-    if (!keys.length) return message.reply("📭 Empty stats");
+// 🔥 AUTO REPLY PART
+module.exports.handleEvent = async function ({ api, event }) {
+  const data = loadData();
 
-    return message.reply(
-      "📊 USAGE STATS:\n\n" +
-      keys.map(k => `${k} → ${group[k].count}`).join("\n")
-    );
-  }
-},
-
-onChat: async function ({ event, message }) {
+  if (!data.status) return;
   if (!event.body) return;
 
-  let data = loadData();
-  const threadID = event.threadID;
-  const input = event.body.toLowerCase();
+  const msg = event.body.toLowerCase();
 
-  const group = data[threadID] || {};
-
-  for (const key in group) {
-    if (input.includes(key)) {
-      const replies = group[key].replies;
-
-      if (!replies || !replies.length) return;
-
-      group[key].count++;
-      saveData(data);
-
-      return message.reply(
-        replies[Math.floor(Math.random() * replies.length)]
-      );
+  for (const key in data.replies) {
+    if (msg.includes(key)) {
+      return api.sendMessage(data.replies[key], event.threadID);
     }
   }
-}
 };
