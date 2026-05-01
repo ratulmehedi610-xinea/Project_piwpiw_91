@@ -2,12 +2,12 @@ const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
 
-let isEnabled = true; // 🔥 GLOBAL TOGGLE
+let isEnabled = true;
 
 module.exports = {
   config: {
     name: "emoji_voice",
-    version: "2.0.2",
+    version: "2.0.3",
     author: "MOHAMMAD AKASH",
     countDown: 5,
     role: 0,
@@ -18,7 +18,6 @@ module.exports = {
 
   onStart: async function () {},
 
-  // 🔥 COMMAND FOR ON/OFF
   onChat: async function ({ event, message }) {
     const { body } = event;
     if (!body) return;
@@ -34,12 +33,9 @@ module.exports = {
       return message.reply("❌ Emoji Voice OFF করা হয়েছে");
     }
 
-    // ❌ OFF থাকলে কাজ করবে না
     if (!isEnabled) return;
-
     if (body.length > 2) return;
 
-    // --- EMOJI WITH MULTIPLE RANDOM AUDIO LINKS ---
     const emojiAudioMap = {
       "🥱": ["https://files.catbox.moe/9pou40.mp3","https://files.catbox.moe/60cwcg.mp3"],
       "😁": ["https://files.catbox.moe/60cwcg.mp3"],
@@ -91,28 +87,47 @@ module.exports = {
     const audioList = emojiAudioMap[emoji];
     if (!audioList) return;
 
-    const audioUrl = audioList[Math.floor(Math.random() * audioList.length)];
-
     const cacheDir = path.join(__dirname, "cache");
     fs.ensureDirSync(cacheDir);
 
-    const filePath = path.join(
-      cacheDir,
-      `${encodeURIComponent(emoji)}_${Date.now()}_${Math.floor(Math.random() * 1000)}.mp3`
-    );
+    // 🔥 TRY MULTIPLE TIMES (RETRY SYSTEM)
+    for (let i = 0; i < 3; i++) {
+      try {
+        const audioUrl = audioList[Math.floor(Math.random() * audioList.length)];
 
-    try {
-      const response = await axios.get(audioUrl, { responseType: "arraybuffer" });
-      fs.writeFileSync(filePath, Buffer.from(response.data));
+        const filePath = path.join(
+          cacheDir,
+          `${encodeURIComponent(emoji)}_${Date.now()}_${Math.random()}.mp3`
+        );
 
-      await message.reply({ attachment: fs.createReadStream(filePath) });
+        const res = await axios({
+          url: audioUrl,
+          method: "GET",
+          responseType: "stream",
+          timeout: 10000 // 🔥 timeout fix
+        });
 
-      fs.unlink(filePath, (err) => {
-        if (err) console.error("Failed to delete cache file:", err);
-      });
-    } catch (error) {
-      console.error(error);
-      message.reply("ইমোজি দিয়ে লাভ নাই 😒\nযাও মুড়ি খাও জান 😘");
+        const writer = fs.createWriteStream(filePath);
+        res.data.pipe(writer);
+
+        await new Promise((resolve, reject) => {
+          writer.on("finish", resolve);
+          writer.on("error", reject);
+        });
+
+        await message.reply({
+          attachment: fs.createReadStream(filePath)
+        });
+
+        fs.unlink(filePath, () => {});
+        return;
+
+      } catch (err) {
+        console.log(`Retry ${i + 1} failed`);
+      }
     }
+
+    // ❌ FINAL FAIL
+    return message.reply("ইমোজি দিয়া লাভ নাই 😒 যাও মুড়ি খাওও জান 🙂😘");
   }
 };
