@@ -1,8 +1,5 @@
-const axios = require("axios");
-const fs = require("fs-extra");
-const path = require("path");
-
-module.exports = {
+ path = require("path
+modts{
   config: {
     name: "emoji_voice",
     version: "3.0.0",
