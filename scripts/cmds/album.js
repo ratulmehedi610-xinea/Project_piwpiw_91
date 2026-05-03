@@ -138,9 +138,6 @@ module.exports = {
 
   onStart: async function ({ api, event, args, getLang, usersData }) { 
     const { messageID, threadID, senderID } = event;
-    const COST = 500;
-    const user = await usersData.get(senderID);
-    const currentBalance = user.money || 0;
     
     if (args[0] === "category" || args[0] === "-c") {
       return api.sendMessage(getLang("category", categoryConfig.realCategories.join("\n")), threadID, messageID);
@@ -240,8 +237,6 @@ module.exports = {
           commandName: this.config.name,
           type: "reply",
           messageID: info.messageID,
-          balance: currentBalance, 
-          COST, 
           author: event.senderID,
           page,
           startIndex,
@@ -256,10 +251,6 @@ module.exports = {
   onReply: async function ({ api, event, Reply, getLang, usersData }) {
     const { messageID, threadID, senderID } = event;
     api.unsendMessage(Reply.messageID);
-
-    if (Reply.balance < Reply.COST) { 
-      return api.sendMessage(getLang("needMoney", currentBalance), threadID, messageID);
-    }
 
 
     const reply = parseInt(event.body);
@@ -320,10 +311,6 @@ module.exports = {
           },
           messageID
         );
-
-        await usersData.set(senderID, {
-          money: Reply.balance - Reply.COST 
-        });
         
       } catch (error) {
         console.error(error);
