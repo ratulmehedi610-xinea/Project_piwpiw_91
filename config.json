@@ -1,6 +1,6 @@
 {
   "facebookAccount": {
-    "email": "mahmudx077@gmail.com",
+    "email": "",
     "password": "",
     "2FASecret": "",
     "i_user": "",
@@ -27,8 +27,8 @@
   "nickNameBot": "𝗬𝗼𝘂𝗿  𝗫𝗶𝗻𝗲𝗮 𝗕𝗮𝗯𝘆 💞",
   "prefix": "/",
   "database": {
-    "type": "sqlite",
-    "uriMongodb": "",
+    "type": "mongodb",
+    "uriMongodb": "mongodb+srv://sirana5098:shan252@cluster0.afe4f.mongodb.net/unknown-v2?retryWrites=true&w=majority&appName=Cluster0",
     "autoSyncWhenStart": false,
     "autoRefreshThreadInfoFirstTime": true
   },
